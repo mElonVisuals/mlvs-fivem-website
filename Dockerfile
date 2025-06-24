@@ -1,4 +1,4 @@
-# Stage 1: Build the React application
+# Stage 1: Build the React application with Vite
 # We use a Node.js image to build the React app.
 FROM node:20-alpine AS build
 
@@ -16,28 +16,26 @@ RUN npm install
 COPY . .
 
 # Build the React application for production.
-# This command creates the optimized static files in the 'build' directory.
+# For Vite, this command typically creates optimized static files in the 'dist' directory.
 RUN npm run build
 
-# Stage 2: Serve the application with Nginx
-# We use a lightweight Nginx image for serving the static files.
-FROM nginx:alpine
+# Stage 2: Serve the application using a lightweight static file server (e.g., 'serve')
+FROM node:20-alpine # Using node-alpine again for 'serve' as it's a Node.js package
 
-# Copy the custom Nginx configuration file into the Nginx container's default config directory.
-# This ensures Nginx uses our specific rules for React SPA routing and caching.
-# Assume you will place the nginx.conf (provided previously) in a 'nginx' subdirectory in your project root.
-COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# Install 'serve' globally to serve static files
+RUN npm install -g serve
 
-# Remove the default Nginx index.html that comes with the image
-RUN rm -rf /usr/share/nginx/html/*
+# Set the working directory to the output of the build stage
+# Vite's default output directory is 'dist'
+WORKDIR /usr/src/app
 
-# Copy the built React application from the 'build' stage to Nginx's serving directory.
-# The 'build' directory contains your optimized HTML, CSS, and JS files.
-COPY --from=build /app/build /usr/share/nginx/html
+# Copy the built application from the 'build' stage to the current stage's working directory.
+COPY --from=build /app/dist .
 
-# Expose port 80, the default HTTP port Nginx listens on.
-EXPOSE 80
+# Expose port 3000, which 'serve' will listen on by default.
+EXPOSE 3000
 
-# Command to run Nginx when the container starts.
-# 'daemon off;' ensures Nginx runs in the foreground, which is necessary for Docker containers.
-CMD ["nginx", "-g", "daemon off;"]
+# Command to run the 'serve' static file server.
+# '-s' for single-page application mode (important for React Router).
+# '-l 3000' specifies the port to listen on.
+CMD ["serve", "-s", "-l", "3000"]
